@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Music</title>
+    <link rel="icon" type="image/jpeg" href="https://savnacevil.github.io/music.jpg">
+    <link rel="apple-touch-icon" href="https://savnacevil.github.io/music.jpg">
+    <style>
+        body {
+            margin: 0;
+            padding-bottom: 200px;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont;
+            color: white;
+            background: #0f2027; /* Fallback */
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+
+        /* Full Screen Background Visualizer */
+        #visualizer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1; /* Sits behind everything */
+            opacity: 0.4; /* Makes it subtle so you can still read text */
+            pointer-events: none;
+        }
+
+        h1 { text-align: center; margin: 20px 0 10px; text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+
+        #genres { display: flex; justify-content: center; gap: 12px; margin-bottom: 10px; position: relative; z-index: 10; }
+
+        .genre-btn { padding: 8px 18px; border-radius: 999px; border: none; background: rgba(255, 255, 255, 0.1); color: white; font-size: 14px; cursor: pointer; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); transition: 0.3s; }
+
+        .genre-btn.active { background: linear-gradient(135deg, #1db954, #00e0ff); box-shadow: 0 0 15px rgba(29, 185, 84, 0.5); color: black; font-weight: bold; }
+
+        #search { width: 88%; margin: 10px auto; display: block; padding: 12px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0, 0, 0, 0.3); color: white; font-size: 16px; outline: none; position: relative; z-index: 10; }
+
+        ul { list-style: none; padding: 0; margin: 0; position: relative; z-index: 10; }
+
+        li { margin: 10px 14px; padding: 14px 16px; background: rgba(0, 0, 0, 0.4); border-radius: 18px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.05); }
+
+        li button { background: linear-gradient(135deg, #1db954, #00e0ff); border: none; color: black; font-size: 16px; padding: 8px 14px; border-radius: 999px; cursor: pointer; font-weight: bold; }
+
+        #player-bar { position: fixed; bottom: 15px; left: 15px; right: 15px; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(25px); border-radius: 30px; padding: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); z-index: 1000; border: 1px solid rgba(255,255,255,0.1); }
+
+        #now-playing { text-align: center; font-size: 14px; margin-bottom: 10px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .progress-container { height: 6px; background: #333; border-radius: 999px; overflow: hidden; cursor: pointer; margin-bottom: 8px; }
+
+        .progress { height: 100%; width: 0%; background: linear-gradient(90deg, #1db954, #00e0ff); }
+
+        .time-display { display: flex; justify-content: space-between; font-size: 11px; opacity: 0.6; margin-bottom: 5px; }
+
+        .controls { display: flex; justify-content: space-evenly; align-items: center; height: 60px; }
+
+        .controls button { border-radius: 50%; border: none; background: rgba(255, 255, 255, 0.1); color: white; font-size: 18px; width: 45px; height: 45px; cursor: pointer; transition: 0.2s; }
+
+        .controls .main { background: linear-gradient(135deg, #1db954, #00e0ff); color: black; font-size: 24px; width: 55px; height: 55px; }
+
+        .controls .active { color: #1db954; box-shadow: 0 0 10px rgba(29, 185, 84, 0.3); }
+
+        audio { display: none; }
+    </style>
+</head>
+<body>
+
+    <canvas id="visualizer"></canvas>
+
+    <h1>My Music</h1>
+
+    <div id="genres">
+        <button class="genre-btn active" onclick="setGenre('rap')">Rap</button>
+        <button class="genre-btn" onclick="setGenre('country')">Country</button>
+    </div>
+
+    <input id="search" placeholder="Search your library..." />
+
+    <ul id="song-list"></ul>
+
+    <div id="player-bar">
+        <div id="now-playing">Nothing playing</div>
+        <div class="progress-container" id="progress-container">
+            <div class="progress" id="progress"></div>
+        </div>
+        <div class="time-display">
+            <span id="current-time">0:00</span>
+            <span id="duration">0:00</span>
+        </div>
+        <div class="controls">
+            <button class="shuffle" id="shuffleBtn" onclick="toggleShuffle()">⇆</button>
+            <button class="prev" onclick="prev()">«</button>
+            <button class="main" onclick="playPause()">▶</button>
+            <button class="next" onclick="next()">»</button>
+            <button class="repeat" id="repeatBtn" onclick="toggleRepeat()">⟳</button>
+        </div>
+        <audio id="audio" crossorigin="anonymous"></audio>
+    </div>
+
+    <script>
+        // Library remains same as your original
+        const library = {
+            rap: [
+                {title:"Godzilla - Eminem",url:"https://ia600309.us.archive.org/4/items/eminem-godzilla/Eminem-Godzilla.mp3"},
+                {title:"Berzerk - Eminem",url:"https://ia601704.us.archive.org/15/items/Berzerk-eminem/Eminem%20-%20Berzerk%20%28Clean%20%20Lyrics%29.mp3"},
+                {title:"Venom - Eminem",url:"https://dn720304.ca.archive.org/0/items/juice-wrld-lucid-dreams-clean-lyrics_202601/%28Clean%29%20Venom%20-%20Eminem.mp3"},
+                {title:"Till I Collapse - Eminem",url:"https://ia600100.us.archive.org/20/items/till-i-collapse-clean/Till%27%20I%20Collapse%20%28clean%29.mp3"},
+                {title:"Stan - Eminem",url:"https://ia600800.us.archive.org/3/items/clean-version-eminem-ft.-dido-stan/%28Clean%20Version%29%20Eminem%20ft.%20Dido-%20Stan.mp3"},
+                {title:"Heartless - Kanye West",url:"https://ia601702.us.archive.org/11/items/heartless_202601/Heartless.mp3"},
+                {title:"Love Lockdown - Kanye West",url:"https://ia600100.us.archive.org/32/items/love-lockdown_202601/Love%20Lockdown.mp3"},
+                {title:"TV Off - Kendrick Lamar",url:"https://ia600600.us.archive.org/0/items/kendrick-lamar-tv-off-clean/Kendrick%20Lamar-%20TV%20OFF%28Clean%29.mp3"},
+                {title:"HUMBLE. - Kendrick Lamar",url:"https://ia601703.us.archive.org/22/items/humble.-kendrick-lamar-clean/HUMBLE.%20-%20Kendrick%20Lamar%20%28Clean%29.mp3"},
+                {title:"Not Like Us - Kendrick Lamar",url:"https://ia600801.us.archive.org/18/items/kendrick-lamar-not-like-us-clean_202601/Kendrick%20Lamar%20-%20Not%20Like%20Us%20%5BClean%5D.mp3"},
+                {title:"God's Plan - Drake",url:"https://ia600303.us.archive.org/31/items/unconfirmed-58528/Drake%20-%20Gods%20Plan%20%28Clean%29.mp3"},
+                {title:"One Dance - Drake",url:"https://ia600303.us.archive.org/31/items/unconfirmed-58528/Drake%20-%20One%20Dance%20%28Super%20Clean%20Version%29.mp3"},
+                {title:"Toosie Slide - Drake",url:"https://dn720304.ca.archive.org/0/items/juice-wrld-lucid-dreams-clean-lyrics_202601/Drake%20-%20Toosie%20Slide%20%28Clean%20-%20Lyrics%29.mp3"},
+                {title:"MILLION DOLLAR BABY - Tommy Richman",url:"https://ia600602.us.archive.org/5/items/tommy-richman-million-dollar-baby-clean/Tommy%20Richman%20-%20MILLION%20DOLLAR%20BABY%20%28CLEAN%29.mp3"},
+                {title:"Butterfly Effect - Travis Scott",url:"https://ia601706.us.archive.org/30/items/butterfly-effect-clean/Butterfly%20effect%20%28clean%29.mp3"},
+                {title:"FE!N - Travis Scott",url:"https://ia601500.us.archive.org/29/items/juice-wrld-all-girls-are-the-same-clean-lyrics-all-girls-are-the-same-clean/Travis%20Scott%20-%20FE%21N%20%28Clean%20-%20Lyrics%29%20feat.%20Playboi%20Carti.mp3"},
+                {title:"SICKO MODE - Travis Scott",url:"https://ia600103.us.archive.org/2/items/travis-scott-sicko-mode-clean-lyrics-ft.-drake/Travis%20Scott%20-%20SICKO%20MODE%20%28Clean%20-%20Lyrics%29%20ft.%20Drake.mp3"},
+                {title:"Lucid Dreams - Juice WRLD",url:"https://ia600303.us.archive.org/20/items/juice-wrld-lucid-dreams-clean-lyrics_202601/%28Clean%29%20Venom%20-%20Eminem.mp3"},
+                {title:"Wishing Well - Juice WRLD",url:"https://ia601801.us.archive.org/35/items/juice-wrld-wishing-well-clean-lyrics_202601/Juice%20WRLD%20-%20Wishing%20Well%20%28Clean%20-%20Lyrics%29.mp3"},
+                {title:"Come & Go - Juice WRLD",url:"https://ia600103.us.archive.org/34/items/juice-wrld-marshmello-come-go-clean-lyrics/Juice%20WRLD%2C%20Marshmello%20-%20Come%20%26%20Go%20%28Clean%20-%20Lyrics%29.mp3"},
+                {title:"Robbery - Juice WRLD",url:"https://ia601708.us.archive.org/4/items/no_copyright_here_hehehehe..._not_like_its_a_juice_wrld_song_hehe.../Juice%20WRLD%20-%20Robbery%20%28Clean%20-%20Lyrics%29.mp3"},
+                {title:"Lean Wit Me - Juice WRLD",url:"https://ia801500.us.archive.org/29/items/juice-wrld-all-girls-are-the-same-clean-lyrics-all-girls-are-the-same-clean/Juice%20WRLD%20-%20Lean%20Wit%20Me%20%28Clean%29.mp3"},
+                {title:"All Girls Are The Same - Juice WRLD",url:"https://ia601500.us.archive.org/29/items/juice-wrld-all-girls-are-the-same-clean-lyrics-all-girls-are-the-same-clean/Juice%20WRLD%20-%20All%20Girls%20Are%20The%20Same%20%28Clean%29%20%28Lyrics%29%20%20All%20Girls%20Are%20The%20Same%20Clean.mp3"},
+                {title:"Sky - Playboi Carti",url:"https://ia600402.us.archive.org/27/items/playboi-carti-sky-clean/Playboi%20Carti%20-%20Sky%20%28CLEAN%29.mp3"}
+            ],
+            country: [
+                {title:"Ordinary - Alex Warren",url:"https://ia600600.us.archive.org/33/items/alex-warren-ordinary-clean-lyrics/Alex%20Warren%20-%20Ordinary%20-%20Clean%20-%20Lyrics.mp3"},
+                {title:"Stick Season - Noah Kahan",url:"https://ia601708.us.archive.org/17/items/noah-kahan-stick-season-nick-music-super-clean-edit/Noah%20Kahan%20-%20Stick%20Season%20%28NickMusic%20Super%20Clean%20Edit%29.mp3"},
+                {title:"All My Love - Noah Kahan",url:"https://ia601601.us.archive.org/21/items/whiskey-glasses-morgan-wallen-clean-version-wlyrics/Noah%20Kahan%20-%20All%20My%20Love%20%28Lyrics%29.mp3"},
+                {title:"Whiskey Glasses - Morgan Wallen",url:"https://ia601601.us.archive.org/21/items/whiskey-glasses-morgan-wallen-clean-version-wlyrics/Whiskey%20GlassesMorgan%20Wallen%20%28clean%20version%20wlyrics%29.mp3"}
+            ]
+        };
+
+        let genre = "rap", songs = library[genre], currentIndex = -1, shuffleMode = false, repeatMode = false;
+        const audio = document.getElementById("audio");
+        const songList = document.getElementById("song-list");
+        const nowPlaying = document.getElementById("now-playing");
+        const progress = document.getElementById("progress");
+        const currentTimeEl = document.getElementById("current-time");
+        const durationEl = document.getElementById("duration");
+        const search = document.getElementById("search");
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+
+        let audioContext, analyser, source;
+
+        function setGenre(g) {
+            genre = g; songs = library[g]; currentIndex = -1;
+            audio.pause(); audio.src = "";
+            progress.style.width = "0%"; currentTimeEl.textContent = "0:00"; durationEl.textContent = "0:00";
+            nowPlaying.textContent = "Nothing playing";
+            document.querySelectorAll(".genre-btn").forEach(b => b.classList.remove("active"));
+            if (event) event.target.classList.add("active");
+            renderSongs();
+        }
+
+        function playSong(i) {
+            currentIndex = i;
+            audio.src = songs[i].url;
+            audio.play();
+            nowPlaying.textContent = songs[i].title;
+            document.querySelector(".main").textContent = "II";
+            if (!audioContext) initVisualizer();
+        }
+
+        function playPause() {
+            if (!audio.src) playSong(0);
+            else if (audio.paused) { audio.play(); document.querySelector(".main").textContent = "II"; }
+            else { audio.pause(); document.querySelector(".main").textContent = "▶"; }
+            if (!audioContext) initVisualizer();
+        }
+
+        function initVisualizer() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            source = audioContext.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+            analyser.fftSize = 128;
+            draw();
+        }
+
+        function draw() {
+            requestAnimationFrame(draw);
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+           
+            const barWidth = (canvas.width / bufferLength) * 2;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                // Here is the "80%" cap logic:
+                // We multiply the volume by a factor that keeps it within 80% of screen height
+                let barHeight = (dataArray[i] / 255) * (canvas.height * 0.8);
+               
+                let grad = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+                grad.addColorStop(0, '#1db954'); // Green at bottom
+                grad.addColorStop(1, '#00e0ff'); // Blue at top
+               
+                ctx.fillStyle = grad;
+                // Rounding the corners slightly for a modern look
+                ctx.fillRect(x, canvas.height - barHeight, barWidth - 4, barHeight);
+                x += barWidth;
+            }
+        }
+
+        function next() { const i = shuffleMode ? rand() : (currentIndex + 1) % songs.length; playSong(i); }
+        function prev() { if (audio.currentTime > 3) { audio.currentTime = 0; return; } const i = shuffleMode ? rand() : (currentIndex - 1 + songs.length) % songs.length; playSong(i); }
+        function toggleShuffle() { shuffleMode = !shuffleMode; document.getElementById("shuffleBtn").classList.toggle("active"); }
+        function toggleRepeat() { repeatMode = !repeatMode; document.getElementById("repeatBtn").classList.toggle("active"); }
+        function rand() { let i; do { i = Math.floor(Math.random() * songs.length); } while (i === currentIndex); return i; }
+
+        audio.ontimeupdate = () => {
+            if (!audio.duration) return;
+            progress.style.width = (audio.currentTime / audio.duration * 100) + "%";
+            currentTimeEl.textContent = fmt(audio.currentTime);
+            durationEl.textContent = fmt(audio.duration);
+        };
+
+        audio.onended = () => { if (repeatMode) playSong(currentIndex); else next(); };
+        function fmt(t) { return Math.floor(t / 60) + ":" + Math.floor(t % 60).toString().padStart(2, "0"); }
+
+        function renderSongs(filter = "") {
+            songList.innerHTML = "";
+            songs.forEach((s, i) => {
+                if (s.title.toLowerCase().includes(filter.toLowerCase())) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span>${s.title}</span><button onclick="playSong(${i})">▶</button>`;
+                    songList.appendChild(li);
+                }
+            });
+        }
+
+        search.oninput = e => renderSongs(e.target.value);
+        renderSongs();
+
+        const progressContainer = document.getElementById("progress-container");
+        progressContainer.addEventListener("click", e => {
+            const rect = progressContainer.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            audio.currentTime = pct * audio.duration;
+        });
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+    </script>
+</body>
+</html>
